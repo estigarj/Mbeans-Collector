@@ -6,10 +6,11 @@ import time
 from datetime import datetime
 
 # ---------------- CONFIGURACIÓN ----------------
-JMX_URL = "service:jmx:rmi:///jndi/rmi://host.docker.internal:9000/jmxrmi"
+host_port= input("Favor ingrese host:port = ")
+JMX_URL = f"service:jmx:rmi:///jndi/rmi://{host_port}/jmxrmi"
 CARPETA_LOGS = "logs_mbeans"
-DOMINIO_FILTRO = "Catalina"   # Ejemplo: "java.nio" o None para todos
-INTERVALO_SEGUNDOS = 5        # ⏱ Intervalo entre capturas
+DOMINIO_FILTRO = input("Favor ingrese el dominio = ")   # Ejemplo: "java.nio" o None para todos
+INTERVALO_SEGUNDOS = int(input("Favor ingrese el intervalo = ")) # ⏱ Intervalo entre capturas
 # ------------------------------------------------
 
 
@@ -94,21 +95,53 @@ def capturar_mbeans(mbsc):
 
         datos = {}
         for mbean in mbeans:
-            name = safe_str(str(mbean.getObjectName()))
-            attrs = {}
+            # Convertir explícitamente el nombre a string
+            name = str(mbean.getObjectName())
             try:
                 info = mbsc.getMBeanInfo(mbean.getObjectName())
+                mbean_data = {
+                    'attributes': {},
+                    'operations': {},
+                    'notifications': []
+                }
+
+                # Capturar atributos
                 for attr in info.getAttributes():
+                    # Asegurar que el nombre del atributo sea string
                     attr_name = str(attr.getName())
                     try:
                         value = mbsc.getAttribute(mbean.getObjectName(), attr_name)
-                        attrs[attr_name] = serialize_mbean(value)
+                        mbean_data['attributes'][attr_name] = serialize_mbean(value)
                     except:
-                        attrs[attr_name] = "<no accesible>"
-            except:
-                attrs = "<no accesible>"
+                        mbean_data['attributes'][attr_name] = "<no accesible>"
 
-            datos[name] = attrs
+                # Capturar operaciones
+                for operation in info.getOperations():
+                    # Asegurar que el nombre de la operación sea string
+                    op_name = str(operation.getName())
+                    op_data = {
+                        'name': op_name,
+                        'return_type': str(operation.getReturnType()),
+                        'parameters': [{
+                            'name': str(param.getName()),
+                            'type': str(param.getType())
+                        } for param in operation.getSignature()]
+                    }
+                    mbean_data['operations'][op_name] = serialize_mbean(op_data)
+
+                # Capturar notificaciones
+                for notification in info.getNotifications():
+                    notif_data = {
+                        'name': str(notification.getName()),
+                        'description': str(notification.getDescription()),
+                        'types': serialize_mbean([str(t) for t in notification.getNotifTypes()])
+                    }
+                    mbean_data['notifications'].append(serialize_mbean(notif_data))
+
+                datos[str(name)] = mbean_data
+            except:
+                datos[str(name)] = "<no accesible>"
+
         return datos
     except Exception as e:
         print(f"❌ Error capturando MBeans: {e}")
