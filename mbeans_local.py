@@ -92,14 +92,42 @@ def attach_local_mbeans(pid):
     for name in mbsc.queryNames(query, None):
         try:
             info = mbsc.getMBeanInfo(name)
-            attrs = {}
+            mbean_data = {
+                'attributes': {},
+                'operations': {},
+                'notifications': []
+            }
+            
+            # Capturar atributos
             for attr in info.getAttributes():
                 try:
                     val = mbsc.getAttribute(name, attr.getName())
-                    attrs[attr.getName()] = val
+                    mbean_data['attributes'][attr.getName()] = val
                 except:
-                    attrs[attr.getName()] = "<no accesible>"
-            mbeans[name.getCanonicalName()] = attrs
+                    mbean_data['attributes'][attr.getName()] = "<no accesible>"
+            
+            # Capturar operaciones
+            for operation in info.getOperations():
+                op_data = {
+                    'name': operation.getName(),
+                    'return_type': str(operation.getReturnType()),
+                    'parameters': [{
+                        'name': param.getName(),
+                        'type': str(param.getType())
+                    } for param in operation.getSignature()]
+                }
+                mbean_data['operations'][operation.getName()] = op_data
+            
+            # Capturar notificaciones
+            for notification in info.getNotifications():
+                notif_data = {
+                    'name': notification.getName(),
+                    'description': notification.getDescription(),
+                    'types': list(notification.getNotifTypes())
+                }
+                mbean_data['notifications'].append(notif_data)
+            
+            mbeans[name.getCanonicalName()] = mbean_data
         except:
             mbeans[str(name)] = "<no accesible>"
 
