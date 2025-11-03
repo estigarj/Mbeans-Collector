@@ -11,6 +11,7 @@ import os
 # ===========================
 # Local (PID)
 LOCAL_PID = input("Favor ingrese el PID = ")  # Reemplazar con tu PID local
+DOMINIO_FILTRO = input("Favor ingrese el dominio = ")
 INTERVALO = int(input("Favor ingrese el intervalo = "))           # Segundos entre capturas
 
 # Ruta al jvm.dll del JDK completo
@@ -85,7 +86,10 @@ def attach_local_mbeans(pid):
     mbsc = connector.getMBeanServerConnection()
 
     mbeans = {}
-    for name in mbsc.queryNames(None, None):
+    # Crear el filtro de dominio si está especificado
+    query = ObjectName(f"{DOMINIO_FILTRO}:*") if DOMINIO_FILTRO else None
+    
+    for name in mbsc.queryNames(query, None):
         try:
             info = mbsc.getMBeanInfo(name)
             attrs = {}
@@ -103,26 +107,6 @@ def attach_local_mbeans(pid):
     vm.detach()
     return mbeans
 
-def jmx_remote_mbeans(jmx_url):
-    try:
-        from jmxquery import JMXConnection, JMXQuery
-    except ImportError:
-        raise ImportError("Para capturar JVM remota necesitas instalar jmxquery: pip install jmxquery")
-
-    conn = JMXConnection(jmx_url)
-    queries = [JMXQuery("*:*")]
-    results = conn.query(queries)
-
-    mbeans = {}
-    for r in results:
-        nombre = r.mBeanName
-        attr = r.attribute
-        valor = str(r.value)
-        if nombre not in mbeans:
-            mbeans[nombre] = {}
-        mbeans[nombre][attr] = valor
-    return mbeans
-
 # ===========================
 # LOOP PRINCIPAL
 # ===========================
@@ -134,10 +118,8 @@ if __name__ == "__main__":
         try:
             if LOCAL_PID:
                 datos = attach_local_mbeans(LOCAL_PID)
-            elif JMX_URL:
-                datos = jmx_remote_mbeans(JMX_URL)
             else:
-                raise Exception("No configurado LOCAL_PID ni JMX_URL")
+                raise Exception("No configurado LOCAL_PID")
 
             # Convertir objetos Java a tipos nativos
             datos_py = java_to_py(datos)
