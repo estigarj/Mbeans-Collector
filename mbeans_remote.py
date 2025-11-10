@@ -14,6 +14,12 @@ INTERVALO_SEGUNDOS = int(input("Favor ingrese el intervalo = ")) # ⏱ Intervalo
 # ------------------------------------------------
 
 
+# Credenciales opcionales
+username = input("Usuario JMX (opcional, presione Enter para omitir) = ")
+password = input("Contraseña JMX (opcional, presione Enter para omitir) = ")
+# ------------------------------------------------
+
+
 def asegurar_directorio(directorio):
     if not os.path.exists(directorio):
         os.makedirs(directorio)
@@ -74,9 +80,22 @@ def iniciar_jvm():
 
 def conectar_remoto():
     from javax.management.remote import JMXServiceURL, JMXConnectorFactory
+    from java.util import HashMap
     try:
         url = JMXServiceURL(JMX_URL)
-        jmxc = JMXConnectorFactory.connect(url, None)
+        
+        # Crear el mapa de ambiente para las credenciales si fueron proporcionadas
+        env = None
+        if username and password:
+            env = HashMap()
+            creds = [username, password]
+            env.put(JMXConnectorFactory.CREDENTIALS, creds)
+            print("Intentando conexión con credenciales...")
+        else:
+            print("Intentando conexión sin credenciales...")
+
+        jmxc = JMXConnectorFactory.connect(url, env)
+        print("✅ Conexión exitosa")
         return jmxc.getMBeanServerConnection()
     except Exception as e:
         print(f"❌ Error conectando JMX remoto: {e}")
